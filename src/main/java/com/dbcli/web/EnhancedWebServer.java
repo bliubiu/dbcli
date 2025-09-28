@@ -406,7 +406,7 @@ public class EnhancedWebServer {
         }
         
         private List<String> readRecentLogs() throws IOException {
-            Path logFile = Paths.get("logs/application.log");
+            Path logFile = Paths.get("logs/dbcli.log");
             if (!Files.exists(logFile)) {
                 return Arrays.asList("日志文件不存在");
             }
@@ -420,7 +420,12 @@ public class EnhancedWebServer {
                 String line;
                 while ((line = raf.readLine()) != null) {
                     // RandomAccessFile读取的是ISO-8859-1编码，需要转换为UTF-8
-                    lines.add(new String(line.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8));
+                    String utf8Line = new String(line.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
+                    // 清理可能的控制字符和特殊字符
+                    utf8Line = utf8Line.replaceAll("[\\x00-\\x09\\x0B\\x0C\\x0E-\\x1F\\x7F]", "");
+                    // 转义JSON特殊字符
+                    utf8Line = utf8Line.replace("\\", "\\\\").replace("\"", "\\\"");
+                    lines.add(utf8Line);
                 }
                 
                 // 只返回最后100行
@@ -1256,11 +1261,27 @@ public class EnhancedWebServer {
                 "                .then(data => {\n" +
                 "                    const logContainer = document.getElementById('logContainer');\n" +
                 "                    logContainer.innerHTML = ''; // 清空日志容器\n" +
-                "                    data.forEach(log => {\n" +
-                "                        const logLine = document.createElement('div');\n" +
-                "                        logLine.className = 'log-line log-' + log.level;\n" +
-                "                        logLine.textContent = log.message;\n" +
-                "                        logContainer.appendChild(logLine);\n" +
+                "                    \n" +
+                "                    // 修复日志数据显示逻辑\n" +
+                "                    // 后端返回的是 {\"logs\": [\"日志行1\", \"日志行2\", ...]} 格式\n" +
+                "                    const logs = data.logs || [];\n" +
+                "                    logs.forEach(logLine => {\n" +
+                "                        const logElement = document.createElement('div');\n" +
+                "                        logElement.className = 'log-line';\n" +
+                "                        \n" +
+                "                        // 根据日志内容设置不同的样式类\n" +
+                "                        if (logLine.includes('[ERROR]') || logLine.includes('[error]')) {\n" +
+                "                            logElement.classList.add('log-error');\n" +
+                "                        } else if (logLine.includes('[WARN]') || logLine.includes('[warn]')) {\n" +
+                "                            logElement.classList.add('log-warn');\n" +
+                "                        } else if (logLine.includes('[SUCCESS]') || logLine.includes('[success]')) {\n" +
+                "                            logElement.classList.add('log-success');\n" +
+                "                        } else {\n" +
+                "                            logElement.classList.add('log-info');\n" +
+                "                        }\n" +
+                "                        \n" +
+                "                        logElement.textContent = logLine;\n" +
+                "                        logContainer.appendChild(logElement);\n" +
                 "                    });\n" +
                 "                })\n" +
                 "                .catch(error => {\n" +

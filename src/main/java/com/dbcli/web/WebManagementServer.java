@@ -669,7 +669,7 @@ public class WebManagementServer {
                     List<String> logLines = new ArrayList<>();
                     
                     // 尝试读取主日志文件（使用RandomAccessFile实现实时读取）
-                    Path logPath = Paths.get("logs/application.log");
+                    Path logPath = Paths.get("logs/dbcli.log"); // 修复日志文件路径
                     if (Files.exists(logPath)) {
                         try (RandomAccessFile reader = new RandomAccessFile(logPath.toFile(), "r")) {
                             // 获取文件大小
@@ -687,6 +687,8 @@ public class WebManagementServer {
                             // 读取所有行
                             String line;
                             while ((line = reader.readLine()) != null) {
+                                // 清理可能的控制字符
+                                line = line.replaceAll("[\\x00-\\x09\\x0B\\x0C\\x0E-\\x1F\\x7F]", "");
                                 if (line.trim().length() > 0) {
                                     logLines.add(line);
                                 }
@@ -717,6 +719,8 @@ public class WebManagementServer {
                                 
                                 String line;
                                 while ((line = reader.readLine()) != null) {
+                                    // 清理可能的控制字符
+                                    line = line.replaceAll("[\\x00-\\x09\\x0B\\x0C\\x0E-\\x1F\\x7F]", "");
                                     if (line.trim().length() > 0) {
                                         logLines.add(line);
                                     }
@@ -759,7 +763,9 @@ public class WebManagementServer {
             sb.append("[");
             for (int i = 0; i < lines.size(); i++) {
                 if (i > 0) sb.append(",");
-                sb.append("\"").append(lines.get(i).replace("\"", "\\\"")).append("\"");
+                // 转义JSON特殊字符
+                String escapedLine = lines.get(i).replace("\\", "\\\\").replace("\"", "\\\"");
+                sb.append("\"").append(escapedLine).append("\"");
             }
             sb.append("]");
             return sb.toString();
