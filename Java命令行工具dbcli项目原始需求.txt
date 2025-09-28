@@ -1,0 +1,442 @@
+开发一个Java命令行工具dbcli，支持连接Oracle、MySQL、PostgreSQL和达梦数据库，通过并行执行预定义SQL指标查询生成excel（默认报告格式）/HTML格式报告。具体要求：
+
+0. 运行环境：
+
+- Java 8+
+- Maven 3.6+ 
+
+1. 功能实现：
+
+- 基于yaml配置连接不同数据库类型，每类数据库一个yaml配置文件
+- 支持UTF8编码避免中文乱码
+- 敏感数据脱敏处理（密码用*号替换，IP保留后两段），配置文件中加密值使用ENC()标记，便于识别密文解密
+- 项目同级 lib目录，存储数据库驱动，便于更新或维护数据库驱动
+- 配置文件分目录存储（configs/metrics/reports/logs/docs）
+- yaml配置文件名后缀支持yaml或yml兼容格式
+- 按配置文件名匹配对应的预定义指标配置文件，如Oracle数据库类型oracle-metrics.yaml。每类数据库仅执行对应数据库类型的预定义指标配置
+
+2. 安全特性：
+
+- 使用SM4算法加密存储敏感信息，支持通过环境变量DBCLI_SM4_KEY设置随机码，若环境变量未设置则使用硬编码
+- 支持运行时加密选项(--encrypt)，含--encrypt选项则自动加密数据库连接配置文件
+- 支持加密选项(--encrypt-hex) 生成 32 位 hex 随机码
+- 支持生成加密结果
+- 数据脱敏
+  - 日志文件内容需对密码用*号替换、IP保留后两段
+  - excel/html报告中数据，仅对节点IP保留后两段，其他列数据不需脱敏
+  - 配置文件支持对密码、用户名、节点IP使用sm4算法加密
+
+3. 日志管理：
+
+- 分级日志记录
+- 日志文件家目录(logs)，生成分级分类日志文件，按天轮转归档日志文件
+- 支持UTF8编码避免中文乱码，输出到指定格式日志文件
+- 统一日志文件内容的时间格式：yyyy-MM-dd HH:mm:ss.SSS
+- 输出日志文件敏感信息需脱敏，如：口令则用`*`号替换，IP地址保留后两段，JDBC连接串加密
+- 默认日志保留周期：60天
+
+4. 执行策略：
+
+- 支持节点选择执行（all/first/master/standby），规定配置文件role只能使用master/standby
+- 连接测试功能（3秒超时）
+- 自动跳过连接失败的节点
+- 数据库连接配置文件中顶层enable控制开关，值为false时跳过该系统
+- Oracle 连接优先级：
+  - svc_name（service name）优先；若无则回退 SID
+
+
+5. 模板支持：
+
+- 生成配置模板(--template)
+- 配置模板文件命名含template关键字，避免生成数据库连接配置文件模板或预定义指标配置文件模板文件覆盖实际数据
+- 节点配置优先于（或覆盖）上层配置，如：端口号在配置文件的顶层（如port: 5336）为通用默认端口，若指定nodes节点端口则优先使用节点端口号。
+- 每类数据库类型一个连接配置文件，如Oracle数据库类型，则命名为oracle-config.yaml，postgresql数据库则命名为pg-config.yaml/postgresql-config.yaml，达梦则为dm-config.yaml，MySQL则为mysql-config.yaml。
+- Oracle数据库支持自动选择SID 与 Service Name ，定义服务名（svc_name: orcl）或SID（sid_name: orcl1）自动选择，优先使用svc_name
+- 每类数据库类型预定义一个指标配置文件，如Oracle数据库类型，则命名为oracle-metrics.yaml，postgresql数据库则命名为pg-metrics.yaml/postgresql-metrics.yaml，达梦则为dm-metrics.yaml，MySQL则为mysql-metrics.yaml
+- 配置文件命名（支持 .yaml/.yml）
+  - 连接配置：oracle-config.yaml | mysql-config.yaml | pg-config.yaml/postgresql-config.yaml | dm-config.yaml
+  - 指标定义：oracle-metrics.yaml | mysql-metrics.yaml | pg-metrics.yaml/postgresql-metrics.yaml | dm-metrics.yaml
+  - 模板文件：名称需包含 template 关键字，避免覆盖真实数据
+
+6. 命令行参数：
+
+- 帮助信息(-h)
+- 指定配置文件路径(-c)
+- 指定指标文件路径(-m)
+- 输出路径/格式(-o/-f)
+- 并发
+
+7. 数据库连接测试：
+
+- 自动跳过enable: false的数据库连接运行测试模式
+- 支持(--test)选项运行测试模式，对数据库连接配置进行简易测试，将测试失败连接清单写入日志文件logs/db_conn_error.txt，便于人工检查确认。 日志内容格式：时间（yyyy-mm-dd hh24:mi:ss)|系统名称| jdbc连接串（节点IP脱敏）
+- 支持运行时测试，若测试连接失败则将该JDBC连接串加密后存储到黑名单列表中logs/db_conn_blacklist.txt，用于后续过程（指标执行过程）自动跳过连接失败的节点。黑名单列表文件内容为失败连接jdbc连接串确定性加密密文。程序运行时自动跳过黑名单列表
+- 支持(--test --clean)选项运行测试模式，先清理历史黑名单列表和失败连接清单文件，然后再执行测试模式
+- 支持并行运行测试模式，当开启的主机列表非常多时，提升效率
+-- 统一连接超时为5秒
+
+8. excel格式分析报告：
+
+- 所有类型的数据库指标数据汇总到一个可自定义命名的excel文件，默认名为：reports/db_metrics_report_yyyyMMdd.xlsx
+- 输出报告仅需对节点IP脱敏处理，其他列数据原值返回
+- 单值指标数据汇总到以“数据库类型”命名的工作表中，表头为：系统名称、数据库名称、节点IP、单值指标描述和columns列、执行时间
+  - 单值指标（type: single）有两种情况：
+    - 有些指标定义了columns列表，SQL会返回多列数据，columns列表定义了列名映射
+    - 有些指标没有columns列表，SQL只返回单列数据，列名应该使用description
+- 多值指标数据汇总到以“数据库类型-该指标项描述”命名的工作表中，如：Oracle-表空间使用情况工作表。其表头为：系统名称、数据库名称、节点IP、columns列、执行时间
+
+9. html格式分析报告：
+- 文件命名： reports/db_metrics_report_yyyyMMdd.html
+- 多“sheet”标签模式html报告，与excel报告工作表列表一致
+- 参照excel工作表，以“标签页（Sheet）”形式展示分析报告，页面顶部提供标签栏切换
+  - 单值：每个数据库类型一个 Sheet（标签名为 dbType）
+  - 多值：每个“数据库类型-指标描述”一个 Sheet（标签名同 Excel 工作表）
+
+10. 阈值告警逻辑：
+- threshold.level=high → 红色高亮
+- threshold.level=medium → 黄色高亮
+- 未配置 threshold ，则该指标忽略阈值高亮显示
+- 单值指标：仅对metrics.yml(yaml) 文件存在threshold字典类型指标项，则比较threshold.value和SQL语句结果判断，满足条件便高亮数据。
+- 多值指标高亮数据，需指定列名
+- 多值指标：仅处理metrics.yml(yaml) 文件存在threshold字典类型指标项，若threshold.column存在仅对该列比较并高亮。
+- 多级阈值规则：统一用 rules（按优先级从高到低判断，命中即着色高亮）；阈值解析处支持 threshold.rules（list），若存在父级 column 则下传到每条 rule。
+
+
+
+#### 模板文件
+
+##### 数据库配置文件
+
+```yaml
+财务测试数据库:
+    enable: true
+    port: 1521
+    username: ENC(encrypted_username)
+    password: ENC(encrypted_password)
+    nodes:
+      - host: ENC(encrypted_ip_1)   # 支持明文/ENC()，解析自动解密
+        svc_name: orcl              # 优先使用 svc_name；如无则使用 sid_name
+        role: master                # 仅允许 master/standby
+      - host: ENC(encrypted_ip_2)
+        sid_name: orcl1
+        port: 1522                  # 节点端口覆盖顶层端口
+        role: standby
+        username: ENC(encrypted_username)  # 节点端口覆盖顶层用户
+        password: ENC(encrypted_password)  # 节点端口覆盖顶层密码
+
+```
+
+##### 指标配置文件
+
+```yaml
+# 达梦数据库指标配置文件
+
+
+# 配置信息
+- type: SINGLE
+  name: dbname
+  description: 数据库名称
+  sql: SELECT cur_database()
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: db_port
+  description: 数据库端口
+  sql: SELECT SF_GET_PARA_VALUE(2,'PORT_NUM')
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: arch_mode
+  description: 归档模式
+  sql: SELECT CASE ARCH_MODE WHEN 'N' THEN '非归档模式' else '归档模式' end ARCH_MODE from v$database
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: page_size
+  description: 页大小(K)
+  sql: SELECT round(SF_GET_PAGE_SIZE()/1024) page_size
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: extent_size
+  description: 簇大小(K)
+  sql: SELECT SF_GET_EXTENT_SIZE() extent_size
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: charset
+  description: 字符集
+  sql: SELECT CASE SF_GET_UNICODE_FLAG() WHEN '0' THEN 'GBK18030' WHEN '1' then 'UTF-8' when '2' then 'EUC-KR' END "CHARSET"
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: case_sensitive
+  description: 字符串大小写敏感
+  sql: SELECT CASE SF_GET_CASE_SENSITIVE_FLAG() WHEN '1' THEN '敏感' WHEN 'Y' then '敏感' else '不敏感' END "CASE_SENSITIVE"
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: blank_pad_mode
+  description: 结尾空格填充模式是否兼容ORACLE
+  sql: SELECT CASE SF_GET_PARA_VALUE(2,'BLANK_PAD_MODE') WHEN '0' THEN '不兼容' ELSE '兼容' END "BLANK_PAD_MODE"
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: compatible_mode
+  description: 数据库兼容模式
+  sql: |
+    SELECT CASE SF_GET_PARA_VALUE(2,'COMPATIBLE_MODE') 
+      WHEN '1' THEN '兼容SQL92' 
+      WHEN '2' THEN '部分兼容Oracle' 
+      WHEN '3' THEN '部分兼容MS SQL Server' 
+      WHEN '4' THEN '部分兼容MySQL' 
+      WHEN '5' THEN '兼容DM6' 
+      WHEN '6' THEN '部分兼容Teradata' 
+      WHEN '7' THEN '部分兼容PG' 
+      else '不兼容(默认)'
+    END COMPATIBLE_MODE
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: ENABLE_AUDIT
+  description: 是否开启数据库审计
+  sql: SELECT CASE SF_GET_PARA_VALUE(2,'ENABLE_AUDIT') WHEN '1' THEN '开启' else '关闭' end ENABLE_AUDIT
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: COMM_ENCRYPT_NAME
+  description: 通讯加密算法
+  sql: SELECT PARA_VALUE FROM v$dm_ini where para_name = 'COMM_ENCRYPT_NAME'
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: oguid
+  description: OGUID值
+  sql: SELECT oguid FROM v$instance
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: magic_number
+  description: 唯一魔数
+  sql: SELECT cast(permanent_magic as varchar) magic_number
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: server_series
+  description: 软件版本
+  sql: |
+    SELECT CASE WHEN "SERVER_SERIES"='P' THEN '个人版' WHEN "SERVER_SERIES"='S'
+    THEN '标准版' WHEN "SERVER_SERIES"='E' THEN '企业版' WHEN
+    "SERVER_SERIES"='A' THEN '安全版' WHEN "SERVER_SERIES"='C' THEN '云版本'
+    WHEN "SERVER_SERIES"='D' THEN '开发版' END SERVER_SERIES
+    FROM V$LICENSE
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: server_type
+  description: 软件版本2
+  sql: |
+    SELECT CASE WHEN "SERVER_TYPE" ='1' THEN '正式版' WHEN "SERVER_TYPE"='2'
+    THEN '测试版' WHEN "SERVER_TYPE"='3' THEN '试用版'END SERVER_TYPE
+    FROM V$LICENSE
+  execution_strategy:
+    mode: all
+
+- type: SINGLE
+  name: expired_date
+  description: license有效期时间
+  sql: SELECT cast(EXPIRED_DATE as varchar) EXPIRED_DATE FROM V$LICENSE
+  execution_strategy:
+    mode: all
+  threshold:
+    rules:
+      - level: high
+        operator: "<"
+        value: 7
+      - level: medium
+        operator: "<"
+        value: 32
+
+# 会话和连接指标
+- type: SINGLE
+  name: session_count
+  description: 会话总数
+  sql: SELECT COUNT(*) AS "SESS_COUNT" FROM V$SESSIONS
+  execution_strategy:
+    mode: all
+    retry_policy:
+      enabled: true
+      max_attempts: 3
+      backoff_ms: 1000
+      delay_ms: 1000
+  threshold:
+    rules:
+      - level: high
+        operator: ">"
+        value: 100
+      - level: medium
+        operator: ">"
+        value: 30
+
+- type: SINGLE
+  name: active_sessions
+  description: 活跃会话数
+  sql: |
+    select count(*) as "ACTIVE_SESS_COUNT"
+    FROM V$SESSIONS
+    WHERE STATE IN ('ACTIVE','WAIT')
+      and sess_id != (select sessid)
+  execution_strategy:
+    mode: all
+    retry_policy:
+      enabled: true
+      max_attempts: 2
+      backoff_ms: 500
+      delay_ms: 500
+  threshold:
+    rules:
+      - level: high
+        operator: ">"
+        value: 30
+      - level: medium
+        operator: ">"
+        value: 15
+
+- type: SINGLE
+  name: session_pct
+  description: 连接会话占比
+  sql: |
+    select round(COUNT(*)/SF_GET_PARA_VALUE(2, 'MAX_SESSIONS'),2) as "SESS_PCT"
+    FROM V$SESSIONS
+    WHERE STATE IN ('ACTIVE','WAIT')
+      and sess_id != (select sessid)
+  execution_strategy:
+    mode: all
+    retry_policy:
+      enabled: true
+      max_attempts: 2
+      backoff_ms: 500
+      delay_ms: 500
+  threshold:
+    # column: SESS_PCT
+    rules:
+      - level: high
+        operator: ">"
+        value: 60
+      - level: medium
+        operator: ">"
+        value: 30
+
+
+# 表空间使用情况
+- type: MULTI
+  name: tablespace_usage
+  description: 表空间使用情况
+  sql: |
+      select
+        /*+optimizer_version(70032)*/
+        ts.NAME      ,
+        ts.FILE_NUM  ,
+        -- SF_GET_PAGE_SIZE()/1024 as "PAGE_SIZE(K)",
+        CASE WHEN ts.TYPE$='1' THEN 'DB TYPE' WHEN ts.TYPE$='2' THEN 'TEMPORARY' END AS "TYPE",
+        CASE WHEN ts.STATUS$='0' THEN 'ONLINE' WHEN ts.STATUS$='1' THEN 'OFFLINE' WHEN ts.STATUS$='2' THEN 'RES_OFFLINE' WHEN ts.STATUS$='3' THEN 'CORRUPT' END AS "STATUS",
+        DF.MAX_SIZE as "MAX_SIZE(M)",
+        ts.TOTAL_SIZE*page/1024/1024 as "TOTAL_SIZE(M)",
+        DF.USED_SIZE * page /1024/1024 as "USED_SIZE(M)",
+        DF.FREE_SIZE*page/1024/1024 AS "FREE_SIZE(M)",
+        DF.USED_PCT AS "USED_PCT"
+      FROM
+              SYS.V$TABLESPACE TS
+      left join
+        (
+           select
+             GROUP_ID                   ,
+             SUM(FREE_SIZE)                                                   as FREE_SIZE,
+             SUM(MAX_SIZE)                                                    as MAX_SIZE,
+             sum(cast(TOTAL_SIZE as decimal))-sum(cast(FREE_SIZE as decimal)) as "USED_SIZE",
+             round((sum(cast(TOTAL_SIZE as decimal))-sum(cast(FREE_SIZE as decimal)))*100/sum(cast(TOTAL_SIZE as decimal)),1) as USED_PCT
+           from
+             SYS.V$DATAFILE
+           group by
+             GROUP_ID
+        ) DF
+      on DF.GROUP_ID=TS.ID
+      ORDER BY TS.TYPE$, DF.USED_PCT
+  columns: ["表空间名称", "数据文件数量", "类型", "状态", "最大可扩展大小容量(M)", "总容量大小(M)", "使用容量(M)", "空闲容量(M)", "使用率"]
+  execution_strategy:
+    mode: first
+    retry_policy:
+      enabled: true
+      max_attempts: 3
+      backoff_ms: 1000
+      delay_ms: 1000
+  threshold:
+    column: "使用率"
+    rules:
+      - level: high
+        operator: ">"
+        value: 80
+      - level: medium
+        operator: ">"
+        value: 60
+
+- name: user_info
+  type: MULTI
+  description: 数据库用户状态信息
+  sql: >
+    SELECT
+      t2.username,
+      t2.account_status,
+      t1.life_time,
+      t1.failed_attemps,
+      t1.pwd_policy,
+      to_char(t2.EXPIRY_DATE , 'YYYY-MM-DD HH24:MI:SS') EXPIRY_DATE,
+      CASE WHEN t2.EXPIRY_DATE IS NOT NULL THEN
+        TIMESTAMPDIFF (DD , SYSDATE , t2.EXPIRY_DATE)
+      ELSE '999999'
+      END AS days,
+      to_char(t2.created , 'YYYY-MM-DD HH24:MI:SS') AS create_date,
+      to_char(t2.lock_date , 'YYYY-MM-DD HH24:MI:SS') AS lock_date,
+      t2.default_tablespace 
+    FROM
+      SYSUSERS t1,
+      DBA_USERS t2
+    WHERE
+      t1.id = t2.user_id
+    ORDER BY
+      days DESC,
+      t2.created
+  columns: ["账号", "账号状态", "口令有效期", "失败次数", "口令策略", "过期时间", DAYS, "创建时间", "锁定时间", "默认表空间"]
+  execution_strategy:
+    mode: first
+    retry_policy:
+      enabled: true
+      max_attempts: 3
+      backoff_ms: 1000
+      delay_ms: 1000
+  threshold:
+    rules:
+      - level: high
+        column: DAYS
+        operator: "<"
+        value: 32
+      - level: medium
+        column: "账号状态"
+        operator: "!="
+        value: "OPEN"
+```
+
