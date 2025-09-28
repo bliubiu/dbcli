@@ -88,11 +88,15 @@ public class LogReaderUtil {
                     sb.append("\\t");
                     break;
                 default:
-                    // 跳过可能导致JSON解析错误的控制字符
-                    if (c < 0x20 || c > 0x7E) {
-                        // 对于非ASCII字符，保留原样（UTF-8编码）
-                        sb.append(c);
+                    // 处理所有Unicode字符，确保正确转义
+                    if (c < 0x20) {
+                        // 控制字符转换为Unicode转义序列
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else if (c >= 0x7F && c <= 0xFFFF) {
+                        // 非ASCII字符转换为Unicode转义序列
+                        sb.append(String.format("\\u%04x", (int) c));
                     } else {
+                        // 普通ASCII字符直接添加
                         sb.append(c);
                     }
                     break;
