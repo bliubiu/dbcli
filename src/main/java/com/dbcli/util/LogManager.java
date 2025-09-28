@@ -24,6 +24,35 @@ public class LogManager {
     
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS");
     
+    // 初始化MDC默认值，避免日志中出现空的占位符
+    static {
+        initMdcDefaults();
+    }
+    
+    /**
+     * 初始化MDC默认值
+     */
+    private static void initMdcDefaults() {
+        if (MDC.get("traceId") == null) {
+            MDC.put("traceId", "");
+        }
+        if (MDC.get("spanId") == null) {
+            MDC.put("spanId", "");
+        }
+        if (MDC.get("operation") == null) {
+            MDC.put("operation", "");
+        }
+        if (MDC.get("dbType") == null) {
+            MDC.put("dbType", "");
+        }
+        if (MDC.get("systemName") == null) {
+            MDC.put("systemName", "");
+        }
+        if (MDC.get("metricName") == null) {
+            MDC.put("metricName", "");
+        }
+    }
+    
     /**
      * 记录数据库连接失败
      */
@@ -61,8 +90,8 @@ public class LogManager {
         Logger logger = LoggerFactory.getLogger("com.dbcli.executor");
         
         // 设置MDC上下文（与logback.xml键一致）
-        MDC.put("systemName", systemName);
-        MDC.put("metricName", metricName);
+        MDC.put("systemName", systemName != null ? systemName : "");
+        MDC.put("metricName", metricName != null ? metricName : "");
         MDC.put("operation", "exec_sql");
         
         logger.info("开始执行SQL - 系统: {}, 指标: {}", systemName, metricName);
@@ -298,33 +327,33 @@ public class LogManager {
 
     // ==== MDC helpers ====
     public static void initTraceIfAbsent() {
-        if (org.slf4j.MDC.get("traceId") == null || org.slf4j.MDC.get("traceId").isEmpty()) {
+        if (MDC.get("traceId") == null || MDC.get("traceId").isEmpty()) {
             String tid = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-            org.slf4j.MDC.put("traceId", tid);
+            MDC.put("traceId", tid);
         }
-        if (org.slf4j.MDC.get("spanId") == null || org.slf4j.MDC.get("spanId").isEmpty()) {
-            org.slf4j.MDC.put("spanId", "root");
+        if (MDC.get("spanId") == null || MDC.get("spanId").isEmpty()) {
+            MDC.put("spanId", "root");
         }
     }
 
     public static void setOperation(String op) {
-        if (op != null) org.slf4j.MDC.put("operation", op);
+        if (op != null) MDC.put("operation", op != null ? op : "");
     }
 
     public static void clearOperation() {
-        org.slf4j.MDC.remove("operation");
+        MDC.remove("operation");
     }
 
     public static void setDbContext(String dbType, String systemName, String metricName) {
-        if (dbType != null) org.slf4j.MDC.put("dbType", dbType);
-        if (systemName != null) org.slf4j.MDC.put("systemName", systemName);
-        if (metricName != null) org.slf4j.MDC.put("metricName", metricName);
+        MDC.put("dbType", dbType != null ? dbType : "");
+        MDC.put("systemName", systemName != null ? systemName : "");
+        MDC.put("metricName", metricName != null ? metricName : "");
     }
 
     public static void clearDbContext() {
-        org.slf4j.MDC.remove("dbType");
-        org.slf4j.MDC.remove("systemName");
-        org.slf4j.MDC.remove("metricName");
+        MDC.remove("dbType");
+        MDC.remove("systemName");
+        MDC.remove("metricName");
     }
     
     /**
