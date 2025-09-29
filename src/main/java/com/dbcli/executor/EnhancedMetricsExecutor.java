@@ -215,15 +215,17 @@ public class EnhancedMetricsExecutor implements MetricsExecutor {
                                                            MetricConfig metricConfig) {
         String taskKey = systemName + ":" + metricConfig.getName();
         
-        return retryPolicy.executeWithRetry(() -> {
+        return retryPolicy.executeWithRetry(
+            (java.util.function.Supplier<java.util.concurrent.CompletableFuture<com.dbcli.model.MetricResult>>) () -> {
             // 获取熔断器
             CircuitBreaker breaker = getCircuitBreaker(systemName);
             
             // 使用熔断器保护执行
-            return breaker.execute(() -> {
+            return breaker.execute(
+                (java.util.function.Supplier<java.util.concurrent.CompletableFuture<com.dbcli.model.MetricResult>>) () -> {
                 // 获取对应的线程池
                 String dbType = dbConfig.getType();
-                return CompletableFuture.supplyAsync(() -> {
+                return CompletableFuture.supplyAsync(com.dbcli.util.MdcExecutors.wrapSupplier(() -> {
                     long startTime = System.currentTimeMillis();
                     
                     try {
@@ -249,7 +251,7 @@ public class EnhancedMetricsExecutor implements MetricsExecutor {
                         logger.error("执行指标失败: {} - {}", taskKey, e.getMessage());
                         return createErrorResult(metricConfig.getName(), e.getMessage());
                     }
-                }, threadPoolManager.getExecutor(dbType));
+                }), threadPoolManager.getExecutor(dbType));
             });
         }, taskKey);
     }

@@ -270,7 +270,7 @@ public class DbCliApplication {
             webServer.start();
             
             logger.info("Web管理界面已启动");
-            logger.info("访问地址: http://localhost:8080");
+            logger.info("访问地址: http://localhost:{}", webServer.getPort());
             logger.info("功能包括: 实时监控、报告生成、配置管理、数据库状态");
             logger.info("按 Ctrl+C 停止服务器");
             

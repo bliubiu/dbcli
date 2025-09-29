@@ -84,6 +84,16 @@ public class ReportGenerationHandler implements HttpHandler {
             DbCliRunner runner = new DbCliRunner(reportConfig);
             boolean success = runner.run();
             
+            // 更新指标（Prometheus）
+            com.dbcli.metrics.MetricsRegistry mr = com.dbcli.metrics.MetricsRegistry.getInstance();
+            mr.setGauge("dbcli_report_generation_success", success ? 1 : 0);
+            mr.setNowEpochGauge("dbcli_last_report_generated_timestamp_seconds");
+            // 报告格式以 label 信息方式编码：dbcli_last_report_format_info{format="excel|html|both"} 1
+            java.util.Map<String,String> fmtLabel = java.util.Map.of("format", format);
+            mr.setGauge("dbcli_last_report_format_info", 1, fmtLabel);
+            // 可选推送
+            com.dbcli.metrics.PrometheusPushUtil.pushIfConfigured(mr.renderPrometheus());
+
             if (success) {
                 String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
                 String fileName = "";

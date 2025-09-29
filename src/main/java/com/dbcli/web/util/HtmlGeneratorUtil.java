@@ -75,6 +75,7 @@ public class HtmlGeneratorUtil {
             "        .tab-content { display: none; }\n" +
             "        .tab-content.active { display: block; }\n" +
             "    </style>\n" +
+            "    <script src=\"https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js\"></script>\n" +
             "</head>\n" +
             "<body>\n" +
             "    <div class=\"header\">\n" +
@@ -186,8 +187,11 @@ public class HtmlGeneratorUtil {
             "                    <button class=\"btn btn-info\" onclick=\"loadConfigList()\">🔄 刷新配置列表</button>\n" +
             "                    <button class=\"btn btn-success\" onclick=\"createNewConfig()\">➕ 新建配置文件</button>\n" +
             "                </div>\n" +
-            "                <div class=\"config-list\" id=\"configList\">\n" +
-            "                    <!-- 配置文件列表将在这里显示 -->\n" +
+            "                <div class=\"config-list\">\n" +
+            "                    <h4>数据库配置</h4>\n" +
+            "                    <div id=\"configListDb\"></div>\n" +
+            "                    <h4 style=\"margin-top: 1rem;\">指标配置</h4>\n" +
+            "                    <div id=\"configListMetrics\"></div>\n" +
             "                </div>\n" +
             "            </div>\n" +
             "        </div>\n" +
@@ -200,6 +204,13 @@ public class HtmlGeneratorUtil {
             "            <h2 id=\"modalTitle\">编辑配置文件</h2>\n" +
             "            <form id=\"configForm\">\n" +
             "                <input type=\"hidden\" id=\"configFileName\">\n" +
+            "                <div class=\"form-group\">\n" +
+            "                    <label for=\"configType\">配置类型:</label>\n" +
+            "                    <select id=\"configType\">\n" +
+            "                        <option value=\"database\">数据库配置</option>\n" +
+            "                        <option value=\"metrics\">指标配置</option>\n" +
+            "                    </select>\n" +
+            "                </div>\n" +
             "                <div class=\"form-group\">\n" +
             "                    <label for=\"configContent\">配置内容 (YAML格式):</label>\n" +
             "                    <textarea id=\"configContent\" placeholder=\"在此输入YAML格式的配置内容...\"></textarea>\n" +
@@ -312,11 +323,11 @@ public class HtmlGeneratorUtil {
             "                .then(data => {\n" +
             "                    let resultHtml = '';\n" +
             "                    if (data.error) {\n" +
-            "                        resultHtml = `<div class=\"alert alert-error\"><strong>错误:</strong> ${data.error}</div>`;\n" +
+            "                        resultHtml = `<div class=\\\"alert alert-error\\\"><strong>错误:</strong> ${data.error}</div>`;\n" +
             "                    } else {\n" +
             "                        const successRate = data.total > 0 ? Math.round((data.success / data.total) * 100) : 0;\n" +
             "                        resultHtml = `\n" +
-            "                            <div class=\"alert alert-success\">\n" +
+            "                            <div class=\\\"alert alert-success\\\">\n" +
             "                                <h4>🎉 连接测试完成</h4>\n" +
             "                                <p><strong>成功连接:</strong> ${data.success} 个数据库</p>\n" +
             "                                <p><strong>连接失败:</strong> ${data.failed} 个数据库</p>\n" +
@@ -328,7 +339,7 @@ public class HtmlGeneratorUtil {
             "                    document.getElementById('connectionTestResult').innerHTML = resultHtml;\n" +
             "                })\n" +
             "                .catch(error => {\n" +
-            "                    document.getElementById('connectionTestResult').innerHTML = `<div class=\"alert alert-error\"><strong>网络错误:</strong> ${error.message}</div>`;\n" +
+            "                    document.getElementById('connectionTestResult').innerHTML = `<div class=\\\"alert alert-error\\\"><strong>网络错误:</strong> ${error.message}</div>`;\n" +
             "                })\n" +
             "                .finally(() => {\n" +
             "                    testBtn.disabled = false;\n" +
@@ -350,19 +361,19 @@ public class HtmlGeneratorUtil {
             "                    let resultHtml = '';\n" +
             "                    if (data.success) {\n" +
             "                        resultHtml = `\n" +
-            "                            <div class=\"alert alert-success\">\n" +
+            "                            <div class=\\\"alert alert-success\\\">\n" +
             "                                <h4>🔒 配置加密成功</h4>\n" +
             "                                <p>${data.message}</p>\n" +
             "                                <p><small>所有敏感信息已使用SM4算法安全加密</small></p>\n" +
             "                            </div>\n" +
             "                        `;\n" +
             "                    } else {\n" +
-            "                        resultHtml = `<div class=\"alert alert-error\"><strong>加密失败:</strong> ${data.message}</div>`;\n" +
+            "                        resultHtml = `<div class=\\\"alert alert-error\\\"><strong>加密失败:</strong> ${data.message}</div>`;\n" +
             "                    }\n" +
             "                    document.getElementById('encryptResult').innerHTML = resultHtml;\n" +
             "                })\n" +
             "                .catch(error => {\n" +
-            "                    document.getElementById('encryptResult').innerHTML = `<div class=\"alert alert-error\"><strong>网络错误:</strong> ${error.message}</div>`;\n" +
+            "                    document.getElementById('encryptResult').innerHTML = `<div class=\\\"alert alert-error\\\"><strong>网络错误:</strong> ${error.message}</div>`;\n" +
             "                })\n" +
             "                .finally(() => {\n" +
             "                    encryptBtn.disabled = false;\n" +
@@ -404,23 +415,23 @@ public class HtmlGeneratorUtil {
             "                    let resultHtml = '';\n" +
             "                    if (data.success) {\n" +
             "                        resultHtml = `\n" +
-            "                            <div class=\"alert alert-success\">\n" +
+            "                            <div class=\\\"alert alert-success\\\">\n" +
             "                                <h4>📊 报告生成成功</h4>\n" +
             "                                <p><strong>保存位置:</strong> ${data.message}</p>\n" +
             "                                <p><strong>文件名:</strong> ${data.fileName}</p>\n" +
             "                        `;\n" +
             "                        // 只有在生成HTML报告或全部报告时才显示预览按钮\n" +
             "                        if (data.previewUrl && (type === 'html' || type === 'both')) {\n" +
-            "                            resultHtml += `<p><a href=\"${data.previewUrl}\" target=\"_blank\" class=\"btn btn-info\">🌐 预览HTML报告</a></p>`;\n" +
+            "                            resultHtml += `<p><a href=\\\"${data.previewUrl}\\\" target=\\\"_blank\\\" class=\\\"btn btn-info\\\">🌐 预览HTML报告</a></p>`;\n" +
             "                        }\n" +
             "                        resultHtml += `</div>`;\n" +
             "                    } else {\n" +
-            "                        resultHtml = `<div class=\"alert alert-error\"><strong>生成失败:</strong> ${data.message}</div>`;\n" +
+            "                        resultHtml = `<div class=\\\"alert alert-error\\\"><strong>生成失败:</strong> ${data.message}</div>`;\n" +
             "                    }\n" +
             "                    document.getElementById('reportResult').innerHTML = resultHtml;\n" +
             "                })\n" +
             "                .catch(error => {\n" +
-            "                    document.getElementById('reportResult').innerHTML = `<div class=\"alert alert-error\"><strong>网络错误:</strong> ${error.message}</div>`;\n" +
+            "                    document.getElementById('reportResult').innerHTML = `<div class=\\\"alert alert-error\\\"><strong>网络错误:</strong> ${error.message}</div>`;\n" +
             "                })\n" +
             "                .finally(() => {\n" +
             "                    excelBtn.disabled = false;\n" +
@@ -436,20 +447,49 @@ public class HtmlGeneratorUtil {
             "            fetch('/api/config')\n" +
             "                .then(response => response.json())\n" +
             "                .then(data => {\n" +
-            "                    const configList = document.getElementById('configList');\n" +
-            "                    configList.innerHTML = ''; // 清空配置列表\n" +
-            "                    data.forEach(config => {\n" +
-            "                        const configItem = document.createElement('div');\n" +
-            "                        configItem.className = 'config-item';\n" +
-            "                        configItem.innerHTML = `\n" +
-            "                            <span>${config.name}</span>\n" +
-            "                            <div class=\"config-actions\">\n" +
-            "                                <button class=\"btn btn-secondary\" onclick=\"editConfig('${config.name}')\">编辑</button>\n" +
-            "                                <button class=\"btn btn-warning\" onclick=\"deleteConfig('${config.name}')\">删除</button>\n" +
-            "                            </div>\n" +
-            "                        `;\n" +
-            "                        configList.appendChild(configItem);\n" +
-            "                    });\n" +
+            "                    const dbContainer = document.getElementById('configListDb');\n" +
+            "                    const metricsContainer = document.getElementById('configListMetrics');\n" +
+            "                    // 兼容回退：如不存在分栏容器，则退回单容器渲染\n" +
+            "                    if (!dbContainer || !metricsContainer) {\n" +
+            "                        const configList = document.getElementById('configList');\n" +
+            "                        if (configList) {\n" +
+            "                            configList.innerHTML = '';\n" +
+            "                            data.forEach(config => {\n" +
+            "                                const item = document.createElement('div');\n" +
+            "                                item.className = 'config-item';\n" +
+            "                                item.innerHTML = `\n" +
+            "                                    <span>${config.name}</span>\n" +
+            "                                    <div class=\\\"config-actions\\\">\n" +
+            "                                        <button class=\\\"btn btn-secondary\\\" onclick=\\\"editConfig('${config.name}')\\\">编辑</button>\n" +
+            "                                        <button class=\\\"btn btn-warning\\\" onclick=\\\"deleteConfig('${config.name}')\\\">删除</button>\n" +
+            "                                    </div>\n" +
+            "                                `;\n" +
+            "                                configList.appendChild(item);\n" +
+            "                            });\n" +
+            "                        }\n" +
+            "                        return;\n" +
+            "                    }\n" +
+            "                    dbContainer.innerHTML = '';\n" +
+            "                    metricsContainer.innerHTML = '';\n" +
+            "                    const renderList = (list, container) => {\n" +
+            "                        list.forEach(config => {\n" +
+            "                            const item = document.createElement('div');\n" +
+            "                            item.className = 'config-item';\n" +
+            "                            item.innerHTML = `\n" +
+            "                                <span>${config.name}</span>\n" +
+            "                                <div class=\\\"config-actions\\\">\n" +
+            "                                    <button class=\\\"btn btn-secondary\\\" onclick=\\\"editConfig('${config.name}')\\\">编辑</button>\n" +
+            "                                    <button class=\\\"btn btn-warning\\\" onclick=\\\"deleteConfig('${config.name}')\\\">删除</button>\n" +
+            "                                </div>\n" +
+            "                            `;\n" +
+            "                            container.appendChild(item);\n" +
+            "                        });\n" +
+            "                    };\n" +
+            "                    const withType = data.map(x => ({ name: x.name, type: x.type || ((x.name||'').toLowerCase().includes('metrics') ? 'metrics' : 'database') }));\n" +
+            "                    const dbList = withType.filter(x => x.type === 'database');\n" +
+            "                    const metricsList = withType.filter(x => x.type === 'metrics');\n" +
+            "                    renderList(dbList, dbContainer);\n" +
+            "                    renderList(metricsList, metricsContainer);\n" +
             "                })\n" +
             "                .catch(error => {\n" +
             "                    console.error('加载配置列表失败:', error);\n" +
@@ -459,6 +499,8 @@ public class HtmlGeneratorUtil {
             "        function createNewConfig() {\n" +
             "            document.getElementById('configFileName').value = '';\n" +
             "            document.getElementById('configContent').value = '';\n" +
+            "            const typeSelect = document.getElementById('configType');\n" +
+            "            if (typeSelect) { typeSelect.value = 'database'; }\n" +
             "            document.getElementById('modalTitle').textContent = '新建配置文件';\n" +
             "            document.getElementById('deleteConfigBtn').style.display = 'none';\n" +
             "            document.getElementById('configModal').style.display = 'block';\n" +
@@ -504,11 +546,17 @@ public class HtmlGeneratorUtil {
             "                }\n" +
             "            }\n" +
             "            \n" +
-            "            // 确定文件类型\n" +
-            "            let fileType = 'database';\n" +
-            "            if (actualFileName.toLowerCase().includes('metrics')) {\n" +
-            "                fileType = 'metrics';\n" +
+            "            // YAML格式校验（使用 js-yaml）\n" +
+            "            try {\n" +
+            "                if (typeof jsyaml !== 'undefined') { jsyaml.load(content); }\n" +
+            "            } catch (e) {\n" +
+            "                alert('YAML格式无效: ' + e.message);\n" +
+            "                return;\n" +
             "            }\n" +
+            "            \n" +
+            "            // 确定文件类型（优先读取下拉选择，回退按文件名推断）\n" +
+            "            const typeSelect = document.getElementById('configType');\n" +
+            "            let fileType = typeSelect ? typeSelect.value : (actualFileName.toLowerCase().includes('metrics') ? 'metrics' : 'database');\n" +
             "            \n" +
             "            const requestData = {\n" +
             "                fileName: actualFileName,\n" +

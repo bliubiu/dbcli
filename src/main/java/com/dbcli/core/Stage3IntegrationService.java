@@ -1,7 +1,7 @@
 package com.dbcli.core;
 
 import com.dbcli.config.HotReloadConfigManager;
-import com.dbcli.web.WebManagementServer;
+import com.dbcli.web.EnhancedWebServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,7 +17,7 @@ public class Stage3IntegrationService {
     private static final Logger logger = LoggerFactory.getLogger(Stage3IntegrationService.class);
     
     private final HotReloadConfigManager configManager;
-    private final WebManagementServer webServer;
+    private final EnhancedWebServer webServer;
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicBoolean running = new AtomicBoolean(false);
     
@@ -27,12 +27,15 @@ public class Stage3IntegrationService {
     
     public Stage3IntegrationService() throws IOException {
         this.configManager = new HotReloadConfigManager();
-        this.webServer = new WebManagementServer(DEFAULT_WEB_PORT);
+        this.webServer = new EnhancedWebServer(new com.dbcli.config.AppConfig());
+        this.webServer.start();
     }
     
     public Stage3IntegrationService(int webPort) throws IOException {
         this.configManager = new HotReloadConfigManager();
-        this.webServer = new WebManagementServer(webPort);
+        com.dbcli.config.AppConfig cfg = new com.dbcli.config.AppConfig();
+        cfg.setWebPort(webPort);
+        this.webServer = new EnhancedWebServer(cfg);
     }
     
     /**

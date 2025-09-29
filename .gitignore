@@ -36,6 +36,7 @@ metrics/*.yaml
 metrics/*.yml
 reports/
 log/
+logs/
 lib/*.jar
 
 # Temporary files

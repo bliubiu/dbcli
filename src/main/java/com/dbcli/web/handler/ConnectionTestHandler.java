@@ -100,6 +100,15 @@ public class ConnectionTestHandler implements HttpHandler {
             int failed = connectionTestService.getFailedEncryptedHosts().size();
             int success = Math.max(0, totalEnabled - failed);
             
+            // 更新指标（Prometheus）
+            com.dbcli.metrics.MetricsRegistry mr = com.dbcli.metrics.MetricsRegistry.getInstance();
+            mr.setGauge("dbcli_connection_test_total", totalEnabled);
+            mr.setGauge("dbcli_connection_test_success_total", success);
+            mr.setGauge("dbcli_connection_test_failed_total", failed);
+            mr.setNowEpochGauge("dbcli_last_connection_test_timestamp_seconds");
+            // 可选推送到 Pushgateway
+            com.dbcli.metrics.PrometheusPushUtil.pushIfConfigured(mr.renderPrometheus());
+
             // 更新最后测试时间
             lastConnectionTestTime = now;
             

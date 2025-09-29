@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
     <!-- 控制台输出模式 -->
-    <property name="CONSOLE_PATTERN" value="%d{HH:mm:ss.SSS} %-5level [%X{traceId}] [%X{spanId}] [%X{operation}] [%X{dbType}/%X{systemName}/%X{metricName}] [%logger{36}] - %msg%n" />
+    <property name="CONSOLE_PATTERN" value="%d{HH:mm:ss.SSS} %-5level [%X{traceId:-\-}] [%X{spanId:-\-}] [%X{operation:-\-}] [%X{dbType:-\-}/%X{systemName:-\-}/%X{metricName:-\-}] [%logger{36}] - %msg%n" />
     
     <!-- 文件输出模式 -->
-    <property name="FILE_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId}] [%X{spanId}] [%X{operation}] [%X{dbType}/%X{systemName}/%X{metricName}] [%logger{50}] - %msg%n" />
+    <property name="FILE_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%X{traceId:-\-}] [%X{spanId:-\-}] [%X{operation:-\-}] [%X{dbType:-\-}/%X{systemName:-\-}/%X{metricName:-\-}] [%logger{50}] - %msg%n" />
     
     <!-- 控制台输出 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">

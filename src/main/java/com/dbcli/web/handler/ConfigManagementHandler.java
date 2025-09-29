@@ -16,6 +16,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.yaml.snakeyaml.Yaml;
 
 public class ConfigManagementHandler implements HttpHandler {
     private static final Logger logger = LoggerFactory.getLogger(ConfigManagementHandler.class);
@@ -197,6 +198,26 @@ public class ConfigManagementHandler implements HttpHandler {
             return;
         }
         
+        // 规范化文件名并进行内容与YAML语法校验
+        String normalizedFileName = ensureYamlSuffix(fileName);
+        String contentForValidation = stripSurroundingQuotes(content)
+            .replace("\\n", "\n")
+            .replace("\\r", "\r")
+            .replace("\\t", "\t");
+        // 拒绝空内容（如需允许空内容可移除此校验）
+        if (isBlank(contentForValidation)) {
+            ResponseUtil.sendResponse(exchange, 400, "{\"error\": \"Content is empty\"}", "application/json");
+            return;
+        }
+        try {
+            // YAML 语法校验
+            new Yaml().load(contentForValidation);
+        } catch (Exception ex) {
+            String msg = ex.getMessage() != null ? ex.getMessage().replace("\"", "\\\"") : "YAML parse error";
+            ResponseUtil.sendResponse(exchange, 400, "{\"error\": \"Invalid YAML: " + msg + "\"}", "application/json");
+            return;
+        }
+
         // 如果没有指定文件类型，根据文件名推断
         if (fileType == null) {
             if (fileName.toLowerCase().contains("metrics")) {
@@ -213,13 +234,13 @@ public class ConfigManagementHandler implements HttpHandler {
             if (!Files.exists(metricsDir)) {
                 Files.createDirectories(metricsDir);
             }
-            configFile = metricsDir.resolve(fileName);
+            configFile = metricsDir.resolve(normalizedFileName);
         } else {
             // 确保数据库配置目录存在
             if (!Files.exists(configDir)) {
                 Files.createDirectories(configDir);
             }
-            configFile = configDir.resolve(fileName);
+            configFile = configDir.resolve(normalizedFileName);
         }
         
         try {
@@ -286,6 +307,30 @@ public class ConfigManagementHandler implements HttpHandler {
         }
     }
     
+    private String ensureYamlSuffix(String name) {
+        if (name == null) return "config.yml";
+        String n = name.trim();
+        String lower = n.toLowerCase();
+        if (!(lower.endsWith(".yml") || lower.endsWith(".yaml"))) {
+            return n + ".yml";
+        }
+        return n;
+    }
+
+    private boolean isBlank(String s) {
+        return s == null || s.trim().isEmpty();
+    }
+
+    private String stripSurroundingQuotes(String s) {
+        if (s == null || s.length() < 2) return s;
+        char first = s.charAt(0);
+        char last = s.charAt(s.length() - 1);
+        if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+            return s.substring(1, s.length() - 1);
+        }
+        return s;
+    }
+
     private Map<String, Object> parseJson(String json) {
         // 改进的JSON解析实现
         Map<String, Object> result = new HashMap<>();

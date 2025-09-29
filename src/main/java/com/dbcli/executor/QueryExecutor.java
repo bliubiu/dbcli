@@ -35,7 +35,7 @@ public class QueryExecutor {
      */
     public CompletableFuture<MetricResult> executeMetricAsync(String dbType, String systemName, 
                                                             MetricConfig metric, String nodeRole) {
-        return CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(com.dbcli.util.MdcExecutors.wrapSupplier(() -> {
             LogManager.setDbContext(dbType, systemName, metric != null ? metric.getName() : null);
             LogManager.setOperation("execute_metric");
             try {
@@ -44,7 +44,7 @@ public class QueryExecutor {
                 LogManager.clearDbContext();
                 LogManager.clearOperation();
             }
-        }, executorService);
+        }), executorService);
     }
 
     /**
@@ -52,7 +52,7 @@ public class QueryExecutor {
      */
     public CompletableFuture<MetricResult> executeMetricAsyncForNode(String dbType, String systemName,
                                                                      MetricConfig metric, DatabaseNode node) {
-        return CompletableFuture.supplyAsync(() -> {
+        return CompletableFuture.supplyAsync(com.dbcli.util.MdcExecutors.wrapSupplier(() -> {
             LogManager.setDbContext(dbType, systemName, metric != null ? metric.getName() : null);
             LogManager.setOperation("execute_metric");
             try {
@@ -61,7 +61,7 @@ public class QueryExecutor {
                 LogManager.clearDbContext();
                 LogManager.clearOperation();
             }
-        }, executorService);
+        }), executorService);
     }
 
     /**
