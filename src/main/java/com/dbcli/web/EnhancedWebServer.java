@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * 增强版Web管理服务器
@@ -21,6 +23,7 @@ public class EnhancedWebServer {
     private final int port;
     private final AppConfig config;
     private volatile boolean running = false;
+    private ThreadPoolExecutor executor;
     
     public EnhancedWebServer(AppConfig config) {
         this.port = config.getWebPort() > 0 ? config.getWebPort() : 8080;
@@ -38,7 +41,9 @@ public class EnhancedWebServer {
         // 统一注册路由
         RouteRegistrar.register(server, config, port);
         
-        server.setExecutor(Executors.newFixedThreadPool(4));
+        // 可控线程池，便于优雅停机
+        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4);
+        server.setExecutor(executor);
         server.start();
         
         running = true;
@@ -47,7 +52,20 @@ public class EnhancedWebServer {
     
     public void stop() {
         if (server != null && running) {
+            // 停止接收新请求，并给正在处理的请求 2 秒时间
             server.stop(2);
+            // 优雅关闭线程池
+            if (executor != null) {
+                executor.shutdown();
+                try {
+                    if (!executor.awaitTermination(10, TimeUnit.SECONDS)) {
+                        executor.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executor.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
+            }
             running = false;
             logger.info("Web管理服务器已停止");
         }
