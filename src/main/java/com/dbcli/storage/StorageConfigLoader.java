@@ -1,6 +1,6 @@
 package com.dbcli.storage;
 
-import com.dbcli.util.SM4Util;
+import com.dbcli.util.EncryptionUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yaml.snakeyaml.Yaml;
@@ -114,17 +114,9 @@ public class StorageConfigLoader {
      * @return 解密后的值或原始值
      */
     private static String decryptIfEncrypted(String value) {
-        if (value != null && value.startsWith("ENC(") && value.endsWith(")")) {
-            // 提取加密内容
-            String encryptedContent = value.substring(4, value.length() - 1);
-            // 解密
-            String decrypted = SM4Util.decrypt(encryptedContent);
-            if (decrypted != null) {
-                return decrypted;
-            } else {
-                logger.warn("解密配置项失败: {}", value);
-                return value; // 解密失败时返回原始值
-            }
+        if (value != null && EncryptionUtil.isEncrypted(value)) {
+            // 使用EncryptionUtil解密
+            return EncryptionUtil.decrypt(value);
         }
         return value;
     }
