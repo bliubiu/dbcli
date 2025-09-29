@@ -227,19 +227,41 @@ public class EnhancedMetricsExecutor implements MetricsExecutor {
                 String dbType = dbConfig.getType();
                 return CompletableFuture.supplyAsync(com.dbcli.util.MdcExecutors.wrapSupplier(() -> {
                     long startTime = System.currentTimeMillis();
+                    // Prometheus 指标注册表
+                    com.dbcli.metrics.MetricsRegistry mr = com.dbcli.metrics.MetricsRegistry.getInstance();
+                    // 启动计数
+                    mr.addCounter("dbcli_metric_execution_total", 1.0, java.util.Map.of(
+                        "dbType", dbType, "system", systemName, "metric", metricConfig.getName(), "status", "started"
+                    ));
                     
                     try {
-                        // 记录开始执行
-                        metricsCollector.recordOperationCount("metric_execution", "started");
-                        
                         // 执行查询 - 使用现有的QueryExecutor方法
                         MetricResult result = queryExecutor.executeMetricWithRetry(
                             dbConfig.getType(), systemName, metricConfig, null);
                         
-                        // 记录执行时间和结果
                         long duration = System.currentTimeMillis() - startTime;
+                        // 原有内部统计
                         metricsCollector.recordQueryMetrics(dbType, systemName, 
                             metricConfig.getName(), duration, result.isSuccess());
+                        
+                        // Prometheus 指标：成功/失败计数与耗时累计
+                        mr.addCounter("dbcli_metric_execution_total", 1.0, java.util.Map.of(
+                            "dbType", dbType, "system", systemName, "metric", metricConfig.getName(),
+                            "status", result.isSuccess() ? "success" : "failed"
+                        ));
+                        mr.addCounter("dbcli_metric_execution_duration_ms_sum", (double) duration, java.util.Map.of(
+                            "dbType", dbType, "system", systemName, "metric", metricConfig.getName()
+                        ));
+                        
+                        // 慢操作阈值（默认 1000ms，可通过 sysprop/env 配置）
+                        long slowMs = getLongConfig("dbcli.metric.slow.ms", "DBCLI_METRIC_SLOW_MS", 1000L);
+                        if (duration >= slowMs) {
+                            logger.warn("慢指标执行: {} 耗时 {}ms (阈值 {}ms) - {} / {}", 
+                                metricConfig.getName(), duration, slowMs, dbType, systemName);
+                            mr.addCounter("dbcli_metric_execution_slow_total", 1.0, java.util.Map.of(
+                                "dbType", dbType, "system", systemName, "metric", metricConfig.getName()
+                            ));
+                        }
                         
                         return result;
                         
@@ -247,6 +269,14 @@ public class EnhancedMetricsExecutor implements MetricsExecutor {
                         long duration = System.currentTimeMillis() - startTime;
                         metricsCollector.recordQueryMetrics(dbType, systemName, 
                             metricConfig.getName(), duration, false);
+                        
+                        // Prometheus 指标：失败计数与耗时累计
+                        mr.addCounter("dbcli_metric_execution_total", 1.0, java.util.Map.of(
+                            "dbType", dbType, "system", systemName, "metric", metricConfig.getName(), "status", "failed"
+                        ));
+                        mr.addCounter("dbcli_metric_execution_duration_ms_sum", (double) duration, java.util.Map.of(
+                            "dbType", dbType, "system", systemName, "metric", metricConfig.getName()
+                        ));
                         
                         logger.error("执行指标失败: {} - {}", taskKey, e.getMessage());
                         return createErrorResult(metricConfig.getName(), e.getMessage());
@@ -259,6 +289,20 @@ public class EnhancedMetricsExecutor implements MetricsExecutor {
     /**
      * 获取熔断器
      */
+    private static long getLongConfig(String sysProp, String envVar, long defVal) {
+        try {
+            String v = System.getProperty(sysProp);
+            if (v == null || v.isEmpty()) {
+                v = System.getenv(envVar);
+            }
+            if (v == null || v.isEmpty()) return defVal;
+            long parsed = Long.parseLong(v.trim());
+            return parsed > 0 ? parsed : defVal;
+        } catch (Exception e) {
+            return defVal;
+        }
+    }
+
     private CircuitBreaker getCircuitBreaker(String systemName) {
         return circuitBreakers.computeIfAbsent(systemName, 
             name -> new CircuitBreaker(name, 5, 30000, 60000));

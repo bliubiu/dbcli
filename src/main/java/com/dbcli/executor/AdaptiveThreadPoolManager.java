@@ -16,12 +16,15 @@ public class AdaptiveThreadPoolManager {
     
     private final int corePoolSize;
     private final int maximumPoolSize;
+    private final int queueCapacity;
     private final Map<String, ThreadPoolExecutor> dbTypeExecutors;
     private final ScheduledExecutorService monitor;
     
     public AdaptiveThreadPoolManager(int baseConcurrency) {
-        this.corePoolSize = Math.max(2, baseConcurrency / 4);
-        this.maximumPoolSize = baseConcurrency;
+        // 从系统属性/环境变量读取参数，提供合理默认
+        this.corePoolSize = getIntConfig("dbcli.pool.core", "DBCLI_POOL_CORE", Math.max(2, baseConcurrency / 4));
+        this.maximumPoolSize = getIntConfig("dbcli.pool.max", "DBCLI_POOL_MAX", Math.max(this.corePoolSize, baseConcurrency));
+        this.queueCapacity = getIntConfig("dbcli.pool.queue", "DBCLI_POOL_QUEUE", 100);
         this.dbTypeExecutors = new ConcurrentHashMap<>();
         this.monitor = Executors.newScheduledThreadPool(1);
         
@@ -44,13 +47,13 @@ public class AdaptiveThreadPoolManager {
             corePoolSize,
             maximumPoolSize,
             60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(100),
+            new LinkedBlockingQueue<>(queueCapacity),
             new DbCliThreadFactory(dbType),
             new ThreadPoolExecutor.CallerRunsPolicy()
         );
         
-        logger.info("为数据库类型 {} 创建线程池: core={}, max={}, queue=100", 
-            dbType, corePoolSize, maximumPoolSize);
+        logger.info("为数据库类型 {} 创建线程池: core={}, max={}, queue={}", 
+            dbType, corePoolSize, maximumPoolSize, queueCapacity);
         
         return executor;
     }
@@ -97,9 +100,9 @@ public class AdaptiveThreadPoolManager {
             }
             
             // 线程池使用率告警
-            double utilizationRate = (double) active / maxPoolSize;
+            double utilizationRate = (double) active / Math.max(1, maxPoolSize);
             if (utilizationRate > 0.8) {
-                logger.warn("线程池 {} 使用率过高: {:.1f}%", dbType, utilizationRate * 100);
+                logger.warn("线程池 {} 使用率过高: {}%", dbType, String.format(java.util.Locale.ROOT, "%.1f", utilizationRate * 100));
             }
         });
     }
@@ -168,6 +171,20 @@ public class AdaptiveThreadPoolManager {
      */
     public int getCorePoolSize() {
         return corePoolSize;
+    }
+    
+    private static int getIntConfig(String sysProp, String envVar, int defVal) {
+        try {
+            String v = System.getProperty(sysProp);
+            if (v == null || v.isEmpty()) {
+                v = System.getenv(envVar);
+            }
+            if (v == null || v.isEmpty()) return defVal;
+            int parsed = Integer.parseInt(v.trim());
+            return parsed > 0 ? parsed : defVal;
+        } catch (Exception e) {
+            return defVal;
+        }
     }
     
     /**
