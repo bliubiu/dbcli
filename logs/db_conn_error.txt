@@ -1,3 +1,4 @@
-2025-09-27 22:22:25|ora测试库181|jdbc:oracle:thin:@//***.***.10.186:1522/orcl
-2025-09-28 11:12:38|dm185|jdbc:dm://***.***.10.185:5336
-2025-09-28 19:54:11|mysql测试库186|jdbc:mysql://***.***.10.186:3307/mysql?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&useUnicode=true&serverTimezone=Asia/Shanghai
+2025-09-29 21:48:33|dm测试库185|jdbc:dm://***.***.10.185:5336
+2025-09-29 21:48:33|mysql测试库186|jdbc:mysql://***.***.10.186:3307/mysql?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&useUnicode=true&serverTimezone=Asia/Shanghai
+2025-09-29 21:48:33|dm测试库181|jdbc:dm://***.***.10.181:5336
+2025-09-29 21:48:33|ora测试库181|jdbc:oracle:thin:@//***.***.10.186:1522/orcl

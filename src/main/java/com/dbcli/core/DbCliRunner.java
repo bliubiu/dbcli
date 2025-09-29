@@ -7,8 +7,13 @@ import com.dbcli.executor.ConcurrentMetricsExecutor;
 import com.dbcli.model.DatabaseConfig;
 import com.dbcli.model.MetricConfig;
 import com.dbcli.model.MetricResult;
-import com.dbcli.service.*;
+import com.dbcli.service.EncryptionService;
 import com.dbcli.service.FastConnectionTestService;
+import com.dbcli.service.ReportGenerator;
+import com.dbcli.service.ReportGeneratorFactory;
+import com.dbcli.service.TemplateService;
+import com.dbcli.storage.MetricsStorageManager;
+import com.dbcli.storage.StorageConfig;
 import com.dbcli.util.FileUtil;
 import com.dbcli.util.LogManager;
 import org.slf4j.Logger;
@@ -33,6 +38,7 @@ public class DbCliRunner {
     private final DatabaseManager databaseManager;
     private final ConcurrentMetricsExecutor metricsExecutor;
     private final ReportGeneratorFactory reportGeneratorFactory;
+    private MetricsStorageManager storageManager;
 
     public DbCliRunner(AppConfig config) {
         this.config = config;
@@ -43,6 +49,25 @@ public class DbCliRunner {
         this.configLoader = new ConfigLoader(new EncryptionService()); // 传入EncryptionService参数
         this.metricsExecutor = new ConcurrentMetricsExecutor(config.getConcurrency(), 30000L); // 30秒超时
         this.reportGeneratorFactory = new ReportGeneratorFactory();
+        this.storageManager = createStorageManager();
+    }
+    
+    /**
+     * 创建存储管理器
+     */
+    private MetricsStorageManager createStorageManager() {
+        StorageConfig storageConfig = new StorageConfig();
+        storageConfig.setEnabled(true);
+        storageConfig.setType("postgresql");
+        storageConfig.setHost("localhost");
+        storageConfig.setPort(5432);
+        storageConfig.setDatabase("dbcli_metrics");
+        storageConfig.setUsername("dbcli_user");
+        storageConfig.setPassword("dbcli_password");
+        storageConfig.setBatchMode(true);
+        storageConfig.setBatchSize(100);
+        
+        return new MetricsStorageManager(storageConfig);
     }
     
     /**
@@ -290,6 +315,14 @@ public class DbCliRunner {
             // 基于目录重新加载并按文件名分组执行（仅执行对应类型指标）
             List<MetricResult> results = metricsExecutor.executeAllMetrics(config.getConfigPath(), config.getMetricsPath());
             
+            // 保存指标结果到持久化存储
+            if (storageManager != null && !results.isEmpty()) {
+                logger.info("开始保存 {} 个指标结果到持久化存储", results.size());
+                storageManager.saveMetricResults(results);
+                storageManager.flush(); // 确保所有数据都写入存储
+                logger.info("指标结果保存完成");
+            }
+            
             long duration = LogManager.endTimer("metrics_collection");
             logger.info("指标收集完成: {} 个结果, 耗时: {}ms", results.size(), duration);
             
@@ -422,6 +455,9 @@ public class DbCliRunner {
             }
             if (connectionTestService != null) {
                 connectionTestService.shutdown();
+            }
+            if (storageManager != null) {
+                storageManager.close();
             }
             
             logger.debug("资源清理完成");

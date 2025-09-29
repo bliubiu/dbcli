@@ -156,6 +156,45 @@ run.bat --help
 2. 打包项目：`mvn package -DskipTests -q`
 3. 运行dbcli应用
 
+### 6️⃣ 指标数据持久化存储
+
+从1.5版本开始，dbcli支持将收集到的指标数据持久化存储到PostgreSQL数据库中，以便进行历史数据分析。
+
+**功能特性：**
+- 自动将指标数据存储到PostgreSQL数据库
+- 支持批量写入以提高性能
+- 自动创建表结构和索引
+- 可配置的存储参数
+
+**使用方法：**
+
+1. 准备PostgreSQL数据库：
+```sql
+-- 创建数据库
+CREATE DATABASE dbcli_metrics;
+
+-- 创建用户
+CREATE USER dbcli_user WITH PASSWORD 'dbcli_password';
+
+-- 授权
+GRANT ALL PRIVILEGES ON DATABASE dbcli_metrics TO dbcli_user;
+```
+
+2. 运行dbcli，指标数据将自动存储到数据库中：
+```bash
+./dbcli.sh -c configs -m metrics -o reports
+```
+
+3. 查询历史数据：
+```sql
+SELECT * FROM metric_results 
+WHERE system_name = 'your_system_name' 
+  AND collect_time >= '2025-01-01'
+ORDER BY collect_time DESC;
+```
+
+更多详细信息请查看 [指标存储功能文档](docs/MetricsStorage.md)。
+
 ## 💻 启动脚本
 
 项目提供了统一的启动脚本，支持跨平台使用：
