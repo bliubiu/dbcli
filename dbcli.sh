@@ -47,11 +47,17 @@ show_help() {
     echo "  -f, --format <format>   指定输出格式 (excel|html|both, 默认: both)"
     echo "  -t, --template          生成配置模板文件"
     echo "  -e, --encrypt           加密配置文件中的敏感信息"
+    echo "  -w, --web               启动Web管理界面"
     echo "  --test                  测试数据库连接"
     echo "  --parallel <num>        设置并发线程数 (默认: 4)"
     echo "  --timeout <seconds>     设置连接超时时间 (默认: 30)"
     echo "  --log-level <level>     设置日志级别 (DEBUG|INFO|WARN|ERROR, 默认: INFO)"
     echo "  --dry-run               模拟运行，不执行实际查询"
+    echo ""
+    echo "简化执行命令:"
+    echo "  ./dbcli.sh                          # 编译并运行"
+    echo "  ./dbcli.sh --web                    # 直接启动Web管理界面"
+    echo "  ./dbcli.sh --test                   # 测试数据库连接"
     echo ""
     echo "示例:"
     echo "  ./dbcli.sh                                    # 使用默认配置运行"
@@ -110,38 +116,52 @@ fi
 JAVA_VERSION=$($JAVA_CMD -version 2>&1 | head -n 1 | cut -d'"' -f2)
 print_success "Java版本: $JAVA_VERSION"
 
-# 检查JAR文件是否存在
-print_info "检查应用程序文件..."
-# 优先查找发布根目录下的 JAR（适配发布包）
-if [ -f "$APP_HOME/dbcli-1.0.0.jar" ]; then
-    JAR_FILE="$APP_HOME/dbcli-1.0.0.jar"
+# 检查是否为Web管理模式
+WEB_MODE=false
+for arg in "$@"; do
+    if [[ "$arg" == "--web" || "$arg" == "--web-management" || "$arg" == "-w" ]]; then
+        WEB_MODE=true
+        break
+    fi
+done
+
+# 如果是Web管理模式，跳过编译步骤
+if [ "$WEB_MODE" = true ]; then
+    print_info "Web管理模式: 跳过编译步骤"
 else
-    # 兼容多种命名的可执行 JAR
-    CAND=$(ls "$APP_HOME"/dbcli-*.jar 2>/dev/null | head -n 1)
-    if [ -n "$CAND" ]; then
-        JAR_FILE="$CAND"
-    elif [ -f "$APP_HOME/target/dbcli-1.0.0.jar" ]; then
-        JAR_FILE="$APP_HOME/target/dbcli-1.0.0.jar"
+    # 检查JAR文件是否存在
+    print_info "检查应用程序文件..."
+    # 优先查找发布根目录下的 JAR（适配发布包）
+    if [ -f "$APP_HOME/dbcli-1.0.0.jar" ]; then
+        JAR_FILE="$APP_HOME/dbcli-1.0.0.jar"
     else
-        CAND=$(ls "$APP_HOME"/target/dbcli-*.jar 2>/dev/null | head -n 1)
+        # 兼容多种命名的可执行 JAR
+        CAND=$(ls "$APP_HOME"/dbcli-*.jar 2>/dev/null | head -n 1)
         if [ -n "$CAND" ]; then
             JAR_FILE="$CAND"
+        elif [ -f "$APP_HOME/target/dbcli-1.0.0.jar" ]; then
+            JAR_FILE="$APP_HOME/target/dbcli-1.0.0.jar"
+        else
+            CAND=$(ls "$APP_HOME"/target/dbcli-*.jar 2>/dev/null | head -n 1)
+            if [ -n "$CAND" ]; then
+                JAR_FILE="$CAND"
+            fi
         fi
     fi
-fi
 
-if [ ! -f "$JAR_FILE" ]; then
-    print_error "找不到JAR文件"
-    echo ""
-    echo "请先构建项目:"
-    echo "  ./build.sh"
-    echo "或者:"
-    echo "  mvn clean package -DskipTests"
-    exit 1
-fi
+    if [ ! -f "$JAR_FILE" ]; then
+        print_error "找不到JAR文件"
+        echo ""
+        echo "请先构建项目:"
+        echo "  ./build.sh"
+        echo "或者:"
+        echo "  mvn clean package -DskipTests"
+        exit 1
+    fi
 
-JAR_SIZE=$(du -h "$JAR_FILE" | cut -f1)
-print_success "找到JAR文件: $JAR_FILE ($JAR_SIZE)"
+    JAR_SIZE=$(du -h "$JAR_FILE" | cut -f1)
+    print_success "找到JAR文件: $JAR_FILE ($JAR_SIZE)"
+fi
 
 # 构建类路径
 print_info "构建类路径..."

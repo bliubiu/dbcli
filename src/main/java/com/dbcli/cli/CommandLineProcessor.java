@@ -43,9 +43,7 @@ public class CommandLineProcessor {
             
             if (cmd.hasOption("t") || cmd.hasOption("test")) {
                 config.setTest(true);
-            }
-            
-            if (cmd.hasOption("clean")) {
+                // 当使用test参数时，默认清理灰名单文件
                 config.setClean(true);
             }
             
@@ -127,8 +125,7 @@ public class CommandLineProcessor {
         options.addOption(null, "version", false, "显示版本信息");
         options.addOption(null, "template", false, "生成配置文件模板");
         options.addOption("e", "encrypt", false, "加密配置文件中的敏感信息");
-        options.addOption("t", "test", false, "测试数据库连接");
-        options.addOption(null, "clean", false, "清理历史失败清单与黑名单后再测试");
+        options.addOption("t", "test", false, "测试数据库连接（自动清理历史失败清单与黑名单）");
         options.addOption(null, "dry-run", false, "仅验证配置，不执行实际操作");
         options.addOption("w", "web", false, "启动Web管理界面");
         options.addOption(null, "web-management", false, "启动Web管理界面（完整参数名）");
@@ -186,7 +183,7 @@ public class CommandLineProcessor {
             "示例:\n" +
             "  dbcli --template                    # 生成配置模板\n" +
             "  dbcli --encrypt                     # 加密配置文件\n" +
-            "  dbcli --test                        # 测试数据库连接\n" +
+            "  dbcli --test                        # 测试数据库连接（自动清理灰名单）\n" +
             "  dbcli -f html -p 10                 # 生成HTML报告，使用10个线程\n" +
             "  dbcli -c /path/configs -o /path/out # 指定配置和输出路径\n");
     }

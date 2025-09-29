@@ -47,6 +47,20 @@ if errorlevel 1 (
     exit /b 1
 )
 
+REM 检查是否为Web管理模式
+set "WEB_MODE="
+for %%A in (%*) do (
+    if /I "%%~A"=="--web" set "WEB_MODE=1"
+    if /I "%%~A"=="--web-management" set "WEB_MODE=1"
+    if /I "%%~A"=="-w" set "WEB_MODE=1"
+)
+
+REM 如果是Web管理模式，直接运行，不进行编译
+if defined WEB_MODE (
+    echo Web管理模式: 跳过编译步骤
+    goto :RUN_JAR
+)
+
 REM 如未编译则编译
 if not exist "target\classes" (
     echo 项目未编译，开始编译...
@@ -64,6 +78,7 @@ for %%d in (configs metrics reports logs lib) do (
     if not exist "%%d" mkdir "%%d"
 )
 
+:RUN_JAR
 REM 优先使用可执行JAR文件（包含所有依赖）
 set "JAR_FILE="
 for %%f in (target\dbcli-*.jar) do (
@@ -139,8 +154,14 @@ call :_pl "  -m--metrics [路径]   指标文件路径（默认：metrics/）"
 call :_pl "  -o--output [路径]    输出路径（默认：reports/）"
 call :_pl "  -p--threads [数量]   并发线程数（默认：7）"
 call :_pl "  -t--test           测试数据库连接"
+call :_pl "  -w--web            启动Web管理界面"
 call :_pl "  --template         生成配置文件模板"
 call :_pl "  --version          显示版本信息"
+call :_pl ""
+call :_pl "简化执行命令:"
+call :_pl "  dbcli.bat                          # 编译并运行"
+call :_pl "  dbcli.bat --web                    # 直接启动Web管理界面"
+call :_pl "  dbcli.bat -t                       # 测试数据库连接"
 endlocal
 exit /b 0
 

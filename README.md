@@ -123,6 +123,39 @@ java -jar target/dbcli-1.0.0.jar --web-management
 # 功能：配置管理、连接测试、报告生成、实时监控
 ```
 
+### 5️⃣ 简化执行流程
+
+为了简化日常使用，项目提供了简化执行脚本，可以一键完成编译、打包和运行：
+
+**Windows环境：**
+```cmd
+# 编译并运行命令行模式
+run.bat
+
+# 启动Web管理界面
+run.bat -w
+
+# 显示帮助信息
+run.bat --help
+```
+
+**Linux/macOS环境：**
+```bash
+# 编译并运行命令行模式
+./run.sh
+
+# 启动Web管理界面
+./run.sh -w
+
+# 显示帮助信息
+./run.sh --help
+```
+
+这些简化脚本会自动执行以下操作：
+1. 使用Maven编译项目：`mvn -q -DskipTests clean compile`
+2. 打包项目：`mvn package -DskipTests -q`
+3. 运行dbcli应用
+
 ## 💻 启动脚本
 
 项目提供了统一的启动脚本，支持跨平台使用：
