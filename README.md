@@ -15,6 +15,7 @@
 - 📝 **细粒度日志**：主/错误/执行/连接/性能日志分流，便于审计与定位
 - 🌐 **Web管理界面**：内置Web管理功能，支持在线配置和监控
 - 🔧 **模板生成**：规范的配置/指标格式，快速上手
+- 💾 **指标数据持久化存储**：支持将指标数据存储到PostgreSQL数据库中，便于历史数据分析
 
 ### 🏗️ 技术架构
 
@@ -36,6 +37,7 @@ dbcli/
 │   ├── executor/                # 并发执行器、重试策略
 │   ├── model/                   # 数据模型
 │   ├── service/                 # 业务服务（加密、报告生成等）
+│   ├── storage/                 # 指标数据持久化存储
 │   ├── util/                    # 工具类（加密、日志、脱敏等）
 │   └── web/                     # Web管理界面
 ├── configs/                     # 数据库连接配置（*.yml）
@@ -163,6 +165,9 @@ run.bat --help
 **功能特性：**
 - 自动将指标数据存储到PostgreSQL数据库
 - 支持批量写入以提高性能
+- 支持配置文件指定数据库连接信息
+- 支持SM4算法加密解密敏感配置项
+- 外部化SQL脚本，不硬编码在代码中
 - 自动创建表结构和索引
 - 可配置的存储参数
 
@@ -180,12 +185,36 @@ CREATE USER dbcli_user WITH PASSWORD 'dbcli_password';
 GRANT ALL PRIVILEGES ON DATABASE dbcli_metrics TO dbcli_user;
 ```
 
-2. 运行dbcli，指标数据将自动存储到数据库中：
+2. 配置存储参数：
+编辑 `configs/storage-config.yaml` 文件：
+```yaml
+# 指标数据持久化存储配置文件
+storage:
+  # 是否启用存储功能
+  enabled: true
+  
+  # 存储类型 (目前仅支持postgresql)
+  type: postgresql
+  
+  # 批量存储配置
+  batchMode: true
+  batchSize: 100
+  
+  # PostgreSQL数据库连接信息
+  postgresql:
+    host: ENC(localhost)      # 支持SM4加密
+    port: 5432
+    database: ENC(dbcli_metrics)  # 支持SM4加密
+    username: ENC(dbcli_user)     # 支持SM4加密
+    password: ENC(dbcli_password) # 支持SM4加密
+```
+
+3. 运行dbcli，指标数据将自动存储到数据库中：
 ```bash
 ./dbcli.sh -c configs -m metrics -o reports
 ```
 
-3. 查询历史数据：
+4. 查询历史数据：
 ```sql
 SELECT * FROM metric_results 
 WHERE system_name = 'your_system_name' 
@@ -287,7 +316,6 @@ dbcli.bat --web-management
 |------|------|------|
 | `-e, --encrypt` | 加密配置文件敏感信息 | `dbcli.sh --encrypt` |
 | `-t, --test` | 测试数据库连接 | `dbcli.sh --test` |
-| `--clean` | 清理失败清单后测试 | `dbcli.sh --test --clean` |
 
 ### 报告格式说明
 

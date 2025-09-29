@@ -1,6 +1,7 @@
 package com.dbcli.storage;
 
 import com.dbcli.model.MetricResult;
+import com.dbcli.util.SQLScriptLoader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -61,44 +62,64 @@ public class PostgreSQLStorageService {
      * 创建必要的表结构
      */
     private void createTables() throws SQLException {
-        // 创建指标结果表
-        String createMetricsTableSQL = """
-            CREATE TABLE IF NOT EXISTS metric_results (
-                id SERIAL PRIMARY KEY,
-                system_name VARCHAR(255),
-                database_name VARCHAR(255),
-                node_ip VARCHAR(45),
-                metric_name VARCHAR(255),
-                metric_description TEXT,
-                metric_type VARCHAR(50),
-                value TEXT,
-                multi_values JSONB,
-                execute_time TIMESTAMP,
-                collect_time TIMESTAMP,
-                success BOOLEAN,
-                error_message TEXT,
-                db_type VARCHAR(50),
-                threshold_level VARCHAR(20),
-                unit VARCHAR(50),
-                node_role VARCHAR(20),
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """;
-            
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute(createMetricsTableSQL);
-            logger.info("指标结果表创建/验证完成");
+        // 从外部SQL脚本文件加载创建表的SQL语句
+        String createMetricsTableSQL = SQLScriptLoader.loadSQLScript("sql/create-metric-table.sql");
+        if (createMetricsTableSQL != null) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute(createMetricsTableSQL);
+                logger.info("指标结果表创建/验证完成");
+            }
+        } else {
+            logger.warn("无法加载创建表的SQL脚本，使用硬编码的SQL语句");
+            // 创建指标结果表
+            String createMetricsTableSQLFallback = """
+                CREATE TABLE IF NOT EXISTS metric_results (
+                    id SERIAL PRIMARY KEY,
+                    system_name VARCHAR(255),
+                    database_name VARCHAR(255),
+                    node_ip VARCHAR(45),
+                    metric_name VARCHAR(255),
+                    metric_description TEXT,
+                    metric_type VARCHAR(50),
+                    value TEXT,
+                    multi_values JSONB,
+                    execute_time TIMESTAMP,
+                    collect_time TIMESTAMP,
+                    success BOOLEAN,
+                    error_message TEXT,
+                    db_type VARCHAR(50),
+                    threshold_level VARCHAR(20),
+                    unit VARCHAR(50),
+                    node_role VARCHAR(20),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """;
+                
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute(createMetricsTableSQLFallback);
+                logger.info("指标结果表创建/验证完成");
+            }
         }
         
-        // 创建索引以提高查询性能
-        String createIndexSQL = """
-            CREATE INDEX IF NOT EXISTS idx_metric_results_system_db 
-            ON metric_results(system_name, database_name, collect_time)
-            """;
-            
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute(createIndexSQL);
-            logger.info("指标结果表索引创建/验证完成");
+        // 从外部SQL脚本文件加载创建索引的SQL语句
+        String createIndexSQL = SQLScriptLoader.loadSQLScript("sql/create-metric-index.sql");
+        if (createIndexSQL != null) {
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute(createIndexSQL);
+                logger.info("指标结果表索引创建/验证完成");
+            }
+        } else {
+            logger.warn("无法加载创建索引的SQL脚本，使用硬编码的SQL语句");
+            // 创建索引以提高查询性能
+            String createIndexSQLFallback = """
+                CREATE INDEX IF NOT EXISTS idx_metric_results_system_db 
+                ON metric_results(system_name, database_name, collect_time)
+                """;
+                
+            try (Statement stmt = connection.createStatement()) {
+                stmt.execute(createIndexSQLFallback);
+                logger.info("指标结果表索引创建/验证完成");
+            }
         }
     }
     

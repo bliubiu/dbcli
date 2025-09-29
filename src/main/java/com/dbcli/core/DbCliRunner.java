@@ -14,6 +14,7 @@ import com.dbcli.service.ReportGeneratorFactory;
 import com.dbcli.service.TemplateService;
 import com.dbcli.storage.MetricsStorageManager;
 import com.dbcli.storage.StorageConfig;
+import com.dbcli.storage.StorageConfigLoader;
 import com.dbcli.util.FileUtil;
 import com.dbcli.util.LogManager;
 import org.slf4j.Logger;
@@ -56,16 +57,9 @@ public class DbCliRunner {
      * 创建存储管理器
      */
     private MetricsStorageManager createStorageManager() {
-        StorageConfig storageConfig = new StorageConfig();
-        storageConfig.setEnabled(true);
-        storageConfig.setType("postgresql");
-        storageConfig.setHost("localhost");
-        storageConfig.setPort(5432);
-        storageConfig.setDatabase("dbcli_metrics");
-        storageConfig.setUsername("dbcli_user");
-        storageConfig.setPassword("dbcli_password");
-        storageConfig.setBatchMode(true);
-        storageConfig.setBatchSize(100);
+        // 从配置文件加载存储配置
+        String configPath = "configs/storage-config.yaml";
+        StorageConfig storageConfig = StorageConfigLoader.loadConfig(configPath);
         
         return new MetricsStorageManager(storageConfig);
     }
