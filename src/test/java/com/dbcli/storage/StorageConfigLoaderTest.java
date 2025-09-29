@@ -14,6 +14,7 @@ public class StorageConfigLoaderTest {
         // 测试加载配置文件
         StorageConfig config = StorageConfigLoader.loadConfig("configs/storage-config.yaml");
         assertNotNull(config);
+        // 注意：根据当前配置文件，enabled应该是true
         assertTrue(config.isEnabled());
         assertEquals("postgresql", config.getType());
         assertTrue(config.isBatchMode());
@@ -26,11 +27,18 @@ public class StorageConfigLoaderTest {
         String original = "test_value";
         String encrypted = EncryptionUtil.encrypt(original);
         
-        StorageConfig config = new StorageConfig();
-        // 这里我们手动测试解密逻辑
-        // 在实际的StorageConfigLoader中，decryptIfEncrypted方法是私有的
-        // 我们可以通过其他方式验证EncryptionUtil的功能
+        // 验证EncryptionUtil正常工作
         String decrypted = EncryptionUtil.decrypt(encrypted);
         assertEquals(original, decrypted);
+    }
+    
+    @Test
+    public void testIsEncrypted() {
+        // 测试isEncrypted方法
+        String original = "test_value";
+        String encrypted = EncryptionUtil.encrypt(original);
+        
+        assertTrue(EncryptionUtil.isEncrypted(encrypted));
+        assertFalse(EncryptionUtil.isEncrypted(original));
     }
 }
