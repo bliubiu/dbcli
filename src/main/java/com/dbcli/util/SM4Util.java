@@ -1,23 +1,22 @@
 package com.dbcli.util;
 
+import org.bouncycastle.crypto.engines.SM4Engine;
+import org.bouncycastle.crypto.paddings.PaddedBufferedBlockCipher;
+import org.bouncycastle.crypto.params.KeyParameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.crypto.Cipher;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Arrays;
 
 /**
  * SM4加密解密工具类
  * 用于加密和解密配置文件中的敏感信息
+ * 使用ECB模式以确保相同明文得到相同密文，适用于配置文件加密场景
  */
 public class SM4Util {
     private static final Logger logger = LoggerFactory.getLogger(SM4Util.class);
-    
-    // SM4密钥长度为16字节（128位）
-    private static final String ALGORITHM = "SM4";
-    private static final String TRANSFORMATION = "SM4/ECB/PKCS5Padding";
     
     // 默认密钥（实际应用中应该从安全的地方获取）
     private static final String DEFAULT_KEY = "dbcli_default_key_12345678";
@@ -32,13 +31,20 @@ public class SM4Util {
         try {
             // 确保密钥长度为16字节
             byte[] keyBytes = getKeyBytes(key);
-            SecretKeySpec secretKeySpec = new SecretKeySpec(keyBytes, ALGORITHM);
             
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
+            // 使用ECB模式的SM4加密
+            PaddedBufferedBlockCipher cipher = new PaddedBufferedBlockCipher(new SM4Engine());
+            KeyParameter keyParam = new KeyParameter(keyBytes);
+            cipher.init(true, keyParam);
             
-            byte[] encryptedBytes = cipher.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            return Base64.getEncoder().encodeToString(encryptedBytes);
+            byte[] input = data.getBytes(StandardCharsets.UTF_8);
+            byte[] output = new byte[cipher.getOutputSize(input.length)];
+            
+            int len = cipher.processBytes(input, 0, input.length, output, 0);
+            len += cipher.doFinal(output, 0);
+            
+            // 只返回有效数据部分
+            return Base64.getEncoder().encodeToString(Arrays.copyOf(output, len));
         } catch (Exception e) {
             logger.error("SM4加密失败: {}", e.getMessage(), e);
             return null;
@@ -55,13 +61,20 @@ public class SM4Util {
         try {
             // 确保密钥长度为16字节
             byte[] keyBytes = getKeyBytes(key);
-            SecretKeySpec secretKeySpec = new SecretKeySpec(keyBytes, ALGORITHM);
             
-            Cipher cipher = Cipher.getInstance(TRANSFORMATION);
-            cipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
+            // 使用ECB模式的SM4解密
+            PaddedBufferedBlockCipher cipher = new PaddedBufferedBlockCipher(new SM4Engine());
+            KeyParameter keyParam = new KeyParameter(keyBytes);
+            cipher.init(false, keyParam);
             
-            byte[] decryptedBytes = cipher.doFinal(Base64.getDecoder().decode(encryptedData));
-            return new String(decryptedBytes, StandardCharsets.UTF_8);
+            byte[] input = Base64.getDecoder().decode(encryptedData);
+            byte[] output = new byte[cipher.getOutputSize(input.length)];
+            
+            int len = cipher.processBytes(input, 0, input.length, output, 0);
+            len += cipher.doFinal(output, 0);
+            
+            // 只返回有效数据部分
+            return new String(Arrays.copyOf(output, len), StandardCharsets.UTF_8);
         } catch (Exception e) {
             logger.error("SM4解密失败: {}", e.getMessage(), e);
             return null;
