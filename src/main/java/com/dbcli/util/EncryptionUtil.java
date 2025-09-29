@@ -25,7 +25,7 @@ public class EncryptionUtil {
     private static final int IV_SIZE = 16;
 
     // 默认密钥（生产中请通过环境变量覆盖）
-    private static final String DEFAULT_KEY = "1234567890abcdef1234567890abcdef";
+    private static final String DEFAULT_KEY = "60f560e7c72a35c2d1969f83b78aafb8";
 
     // 缓存解析后的hex密钥字符串
     private static volatile String CACHED_KEY_HEX = null;
