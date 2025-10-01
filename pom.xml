@@ -236,12 +236,14 @@
                                     </excludes>
                                 </filter>
                                 <!-- 排除本项目中的 logback.xml，避免与 classes 中重复 -->
+                                <!--
                                 <filter>
                                     <artifact>com.dbcli:dbcli</artifact>
                                     <excludes>
                                         <exclude>logback.xml</exclude>
                                     </excludes>
                                 </filter>
+                                -->
                             </filters>
                         </configuration>
                     </execution>

@@ -30,6 +30,12 @@ public class DbCliApplication {
         boolean success = false;
         
         try {
+            // 提前创建日志目录并刷新logback配置，确保文件appender可用
+            try {
+                com.dbcli.util.LogConfigManager.createLogDirectories("logs");
+                com.dbcli.util.LogConfigManager.refresh();
+            } catch (Exception ignore) {}
+            
             // 记录应用启动
             LogManager.logApplicationStart(VERSION, args);
             

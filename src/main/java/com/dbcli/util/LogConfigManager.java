@@ -210,24 +210,25 @@ public class LogConfigManager {
      * 刷新日志配置
      */
     public static void refresh() {
-        loggerContext.reset();
-        
-        // 重新加载配置文件
         try {
-            ch.qos.logback.classic.joran.JoranConfigurator configurator = new ch.qos.logback.classic.joran.JoranConfigurator();
-            configurator.setContext(loggerContext);
-            
             // 查找logback配置文件
             java.net.URL configUrl = LogConfigManager.class.getClassLoader().getResource("logback.xml");
             if (configUrl != null) {
+                // 不要重置上下文，而是重新配置
+                LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+                ch.qos.logback.classic.joran.JoranConfigurator configurator = new ch.qos.logback.classic.joran.JoranConfigurator();
+                configurator.setContext(loggerContext);
                 configurator.doConfigure(configUrl);
+                
+                org.slf4j.Logger logger = LoggerFactory.getLogger(LogConfigManager.class);
+                logger.info("日志配置已刷新");
+            } else {
+                System.err.println("找不到logback.xml配置文件");
             }
-            
-            org.slf4j.Logger logger = LoggerFactory.getLogger(LogConfigManager.class);
-            logger.info("日志配置已刷新");
             
         } catch (Exception e) {
             System.err.println("刷新日志配置失败: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
